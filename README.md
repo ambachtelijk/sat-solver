@@ -12,16 +12,16 @@ Your challenge is to write a SAT solver, and then use it to solve Sudoku problem
 
 Writing a SAT solver for Sudoku's requires that you
 
-write a SAT solver that can read DIMACS input. See the slides from the first lecture on propositional logic, or here (Links to an external site.); the "p" line will help you to more easily read your input file. 
-encode the Sudoku rules as clauses in DIMACS format. You get these for free here. (Links to an external site.)
+1. write a SAT solver that can read DIMACS input. See the slides from the first lecture on propositional logic, or here (Links to an external site.); the "p" line will help you to more easily read your input file. 
+2. encode the Sudoku rules as clauses in DIMACS format. You get these for free here. (Links to an external site.)
 Suggestion: make sure you understand what the different lines of this file mean. You will need this later. 
-encode a given puzzle in DIMACS format. One example of a puzzle is here.  (Links to an external site.)
+3. encode a given puzzle in DIMACS format. One example of a puzzle is here.  (Links to an external site.)
 (again, make sure you understand what the different lines mean).
-give (2)+(3) as input to (1) and return the solution to the given puzzle. 
+4. give (2)+(3) as input to (1) and return the solution to the given puzzle. 
 This output should again be a DIMACS file, but containing only the truth assignment to all variables (729 for Sudoku, different for other SAT problems). If your input file is called 'filename', then make sure your outputfile is called 'filename.out'. If there is no solution (inconsistent problem), the output can be an empty file. If there are multiple solutions (eg. non-propert Sudoku) you only need to return a single solution.
 Your SAT solver should implement at least three different strategies: the DP algorithm without any further heuristics, plus two different heuristics of your choice. These can be some of the heuristics discussed in the lectures, or any other heuristic you can find in the literature (or that you make up yourself, for that matter). Points will be awarded for how sophisticated the strategies are that you choose to implement, but you must implement two different strategies as well as the basic DP algorithm itself.
 
-Of course, your SAT solver must be fully general, in the sense that it is an algorithm to solve not only Sudoku's formulated in SAT, but any SAT problem (at least in principle, given enough time and memory).
+ Of course, your SAT solver must be fully general, in the sense that it is an algorithm to solve not only Sudoku's formulated in SAT, but any SAT problem (at least in principle, given enough time and memory).
 
 We give you a collection of 22000 Sudoku's (Links to an external site.) to test your SAT solver on. These are all in an obvious notation: each line of 81 characters is one puzzle, with a '.' representing an empty square. Obviously, you will need a trivial script to turn such a line into a DIMACS file. 
 
