@@ -2,9 +2,10 @@ import copy
 import math
 import sys
 import timeit
-from typing import Set, Dict, List, Union
+from typing import Set, Dict, List, Union, Tuple
 
 import mxklabs.dimacs
+from mxklabs.dimacs import Dimacs
 
 start = timeit.default_timer()
 NEG = 'negative'
@@ -17,8 +18,8 @@ split = sys.argv[3] if 3 in sys.argv else 'dlcs'
 
 
 def main() -> None:
-    problem = mxklabs.dimacs.read(problem_filename)
-    solved = mxklabs.dimacs.read(solvable_filename)
+    problem: Dimacs = mxklabs.dimacs.read(problem_filename)
+    solved: Dimacs = mxklabs.dimacs.read(solvable_filename)
 
     # Simply prepend the solvable clauses to problem clauses, because the Davis-Putman algorithm will solve the clauses
     # early on anyway, so there is no need to run the algorithm twice.
@@ -33,7 +34,7 @@ def main() -> None:
     positive_vars: List[int] = [*sorted(filter(lambda _variable: result[_variable], result))]
     if result:
         print("Solution found. {} variables resolved, {} positive vars.".format(len(result), len(positive_vars)))
-        sqrt = math.sqrt(len(positive_vars))
+        sqrt: float = math.sqrt(len(positive_vars))
         if sqrt.is_integer():
             for row in range(int(sqrt)):
                 print(positive_vars[:int(sqrt)])
@@ -53,7 +54,7 @@ def dp(clauses: List[Set[int]],
         _polarity: bool = _variable == _literal
         # Only write to resolved and unprocessed when necessary.
         if _variable not in resolved:
-            resolved[_variable] = _polarity
+            resolved[_variable]: bool = _polarity
             unprocessed.add(_literal)
         # We encountered a contradiction.
         elif resolved[_variable] != _polarity:
@@ -62,11 +63,11 @@ def dp(clauses: List[Set[int]],
 
     # Remove all clauses that contain a resolved variable.
     for literal in unprocessed:
-        polar_literal = literal * -1
+        polar_literal: int = literal * -1
         # Remove the whole clause if it contains the resolved literal (therefore the clause resolves to True).
-        clauses = [*filter(lambda _clause: literal not in _clause, clauses)]
+        clauses: List[Set[int]] = [*filter(lambda _clause: literal not in _clause, clauses)]
         # Remove the opposite literal from the clause, because the instance will resolve to False.
-        clauses = [*map(lambda _clause: remove_literal(_clause, polar_literal), clauses)]
+        clauses: List[Set[int]] = [*map(lambda _clause: remove_literal(_clause, polar_literal), clauses)]
 
     # Test for pure literals
     pure_literals: Dict[int, int] = {}
@@ -83,6 +84,7 @@ def dp(clauses: List[Set[int]],
 
         # Test for tautologies.
         if clause_length != len(extract_clause_vars(clause)):
+            # Drop the clause, because it will resolve to true, regardless of the value of its variables.
             clauses.remove(clause)
             continue
 
@@ -90,26 +92,28 @@ def dp(clauses: List[Set[int]],
         if clause_length == 1:
             clauses.remove(clause)
             if not resolve([*clause][0]):
+                # We encountered a contradiction.
                 return False
             continue
 
         # Keep track of all pure literals that we may encounter.
         for literal in clause:
-            variable = abs(literal)
+            variable: int = abs(literal)
             # Keep track if this literal was marked as not pure, so we don't have to probe it again.
             if variable in rejected_variables:
                 continue
-            polar_literal = literal * -1
+            polar_literal: int = literal * -1
             # The current literal is not pure, because its opposite value exists.
             if polar_literal in pure_literals:
                 pure_literals.pop(polar_literal)
                 rejected_variables.add(variable)
             else:
-                pure_literals[variable] = literal
+                pure_literals[variable]: bool = literal
 
     # Test for pure literals.
     for variable in pure_literals:
         if not resolve(pure_literals[variable]):
+            # We encountered a contradiction.
             return False
 
     # Test for an empty set of clauses, which means that we're done with the parsing.
@@ -131,13 +135,18 @@ def split_dlcs(clauses: List[Set[int]],
                unprocessed: Set[int],
                depth: List[int]) -> Union[bool, Dict[int, bool]]:
     unresolved: Dict[str, Dict[int, int]] = extract_vars(clauses)
-    sort = sorted(unresolved[FRQ].items(), key=lambda x: x[1], reverse=True)
+    sort: List[Tuple[int, int]] = [*sorted(unresolved[FRQ].items(), key=lambda x: x[1], reverse=True)]
     for direction in [True, False]:
         for variable, frequency in sort:
-            polarity = direction if unresolved[POS][variable] < unresolved[NEG][variable] else not direction
-            literal = variable if polarity else variable * -1
-
-            result = dp(copy.deepcopy(clauses), {variable: polarity, **resolved}, {literal}, [*depth, literal])
+            polarity: bool = direction if unresolved[POS][variable] < unresolved[NEG][variable] else not direction
+            literal: int = variable if polarity else variable * -1
+            # Re-run the algorithm with a new literal value.
+            result: Union[bool, Dict[int, bool]] = dp(
+                copy.deepcopy(clauses),
+                {variable: polarity, **resolved},
+                {literal},
+                [*depth, literal]
+            )
             # We must do a deep copy, because otherwise we'll get stuck with the clauses from previous attempts.
             if result:
                 return result
@@ -152,8 +161,8 @@ def extract_vars(clauses: List[Set[int]]) -> Dict[str, Dict[int, int]]:
     }
     for clause in clauses:
         for literal in clause:
-            variable = abs(literal)
-            polarity = literal == variable
+            variable: int = abs(literal)
+            polarity: bool = literal == variable
             if variable not in result[FRQ]:
                 result[NEG][variable] = 0
                 result[POS][variable] = 0
