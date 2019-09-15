@@ -14,7 +14,7 @@ FRQ = 'frequency'
 
 problem_filename = sys.argv[1]
 solvable_filename = sys.argv[2]
-split = sys.argv[3] if 3 in sys.argv else 'cdcl'
+split = sys.argv[3] if 3 in sys.argv else 'dlcs'
 
 
 def main() -> None:
@@ -31,8 +31,8 @@ def main() -> None:
 
     result: Union[bool, Dict[int, bool]] = dp(clauses, resolved, unprocessed, list())
 
-    positive_vars: List[int] = [*sorted(filter(lambda _variable: result[_variable], result))]
     if result:
+        positive_vars: List[int] = [*sorted(filter(lambda _variable: result[_variable], result))]
         print("Solution found. {} variables resolved, {} positive vars.".format(len(result), len(positive_vars)))
         sqrt: float = math.sqrt(len(positive_vars))
         if sqrt.is_integer():
@@ -140,7 +140,8 @@ def split_cdcl(clauses: List[Set[int]],
                resolved: Dict[int, bool],
                unprocessed: Set[int],
                depth: List[int]) -> Union[bool, Dict[int, bool]]:
-    return resolved
+    return False
+
 
 # Dynamic Largest Combined Sum split.
 def split_dlcs(clauses: List[Set[int]],
