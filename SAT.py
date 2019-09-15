@@ -10,10 +10,12 @@ NEG = 'negative'
 POS = 'positive'
 FRQ = 'frequency'
 
+problem_filename = sys.argv[1]
+solvable_filename = sys.argv[2]
+split = sys.argv[3] if 3 in sys.argv else 'dlcs'
+
 
 def main():
-    problem_filename = sys.argv[1]
-    solvable_filename = sys.argv[2]
     problem = mxklabs.dimacs.read(problem_filename)
     solved = mxklabs.dimacs.read(solvable_filename)
 
@@ -25,7 +27,7 @@ def main():
 
     print("{} clauses".format(len(clauses)))
 
-    result: bool = dp(clauses, resolved, unprocessed, len(clauses), list())
+    result: bool = dp(clauses, resolved, unprocessed, list())
 
     if result:
         print("Solution found. {} variables resolved."
@@ -38,8 +40,19 @@ def main():
 def dp(clauses: List[Set[int]],
        resolved: Dict[int, bool],
        unprocessed: Set[int],
-       prev_num_clauses: int,
        depth):
+    def resolve(_literal: int):
+        _variable: int = abs(_literal)
+        _polarity: bool = _variable == _literal
+        # Only write to resolved and unprocessed when necessary.
+        if _variable not in resolved:
+            resolved[_variable] = _polarity
+            unprocessed.add(_literal)
+        # We encountered a contradiction.
+        elif resolved[_variable] != _polarity:
+            return False
+        return True
+
     # Remove all clauses that contain a resolved variable.
     for literal in unprocessed:
         polar_literal = literal * -1
@@ -49,15 +62,15 @@ def dp(clauses: List[Set[int]],
         clauses = [*map(lambda _clause: remove_literal(_clause, polar_literal), clauses)]
 
     # Test for pure literals
-    pure_literals: Dict[int, bool] = {}
+    pure_literals: Dict[int, int] = {}
     rejected_variables: Set[int] = set()
     unprocessed: Set[int] = set()
 
     # Copy the clauses, because otherwise the loop will break if we remove items from the iteration.
-    for clause in clauses.copy():
+    for clause in [*clauses]:
         clause_length: int = len(clause)
         # Test for empty clauses.
-        # @todo fix DIMACS parser that it won't drop empty clauses
+        # @TODO Fix DIMACS parser that it won't drop empty clauses from the input file.
         if clause_length == 0:
             return False
 
@@ -69,57 +82,60 @@ def dp(clauses: List[Set[int]],
         # Test for unit clauses.
         if clause_length == 1:
             clauses.remove(clause)
-            literal: int = clause.pop()
-            variable: int = abs(literal)
-            polarity: bool = variable == literal
-            if variable not in resolved:
-                resolved[variable] = polarity
-                unprocessed.add(literal)
-            # We encountered a contradiction.
-            elif resolved[variable] != polarity:
+            if not resolve(clause.pop()):
                 return False
             continue
 
-        # Test for pure literals.
+        # Keep track of all pure literals that we may encounter.
         for literal in clause:
             variable = abs(literal)
+            # Keep track if this literal was marked as not pure, so we don't have to probe it again.
             if variable in rejected_variables:
                 continue
-
             polar_literal = literal * -1
+            # The current literal is not pure, because its opposite value exists.
             if polar_literal in pure_literals:
                 pure_literals.pop(polar_literal)
                 rejected_variables.add(variable)
             else:
-                pure_literals[variable] = variable == literal
+                pure_literals[variable] = literal
 
+    # Test for pure literals.
     for variable in pure_literals:
-        if variable not in resolved:
-            resolved[variable] = pure_literals[variable]
-            unprocessed.add(variable if pure_literals[variable] == abs(pure_literals[variable]) else variable * -1)
-        elif resolved[variable] != pure_literals[variable]:
+        if not resolve(pure_literals[variable]):
             return False
 
-    num_clauses = len(clauses)
-    if len(unprocessed) == 0:
-        # Test for an empty set of clauses.
-        if num_clauses == 0:
-            return True
-        elif num_clauses == prev_num_clauses:
-            unresolved: Dict[str, Dict[int, int]] = extract_vars(clauses)
-            sort = sorted(unresolved[FRQ].items(), key=lambda x: x[1], reverse=True)
-            for direction in [True]:
-                for variable, frequency in sort:
-                    # polarity = direction if unresolved[POS][variable] < unresolved[NEG][variable] else not direction
-                    polarity = direction
-                    literal = variable if polarity else variable * -1
+    # Test for an empty set of clauses, which means that we're done with the parsing.
+    if len(clauses) == 0:
+        return True
 
-                    print("Stack {} Trying {}".format(depth, literal))
-                    if dp(copy.deepcopy(clauses), {variable: polarity, **resolved}, {literal}, num_clauses, [*depth, literal]):
-                        return True
-            return False
+    # There is still something to process, rerun with the current context.
+    elif len(unprocessed) != 0:
+        return dp(clauses, resolved, unprocessed, depth)
 
-    return dp(clauses, resolved, unprocessed, num_clauses, depth)
+    # Perform a Split operation.
+    return {
+        'dlcs': split_dlcs,
+    }[split](clauses, resolved, unprocessed, depth)
+
+
+def split_dlcs(clauses: List[Set[int]],
+               resolved: Dict[int, bool],
+               unprocessed: Set[int],
+               depth):
+    unresolved: Dict[str, Dict[int, int]] = extract_vars(clauses)
+    sort = sorted(unresolved[FRQ].items(), key=lambda x: x[1], reverse=True)
+    for direction in [True]:
+        for variable, frequency in sort:
+            # polarity = direction if unresolved[POS][variable] < unresolved[NEG][variable] else not direction
+            polarity = direction
+            literal = variable if polarity else variable * -1
+
+            print("Stack {} Trying {}".format(depth, literal))
+            # We must do a deep copy, because otherwise we'll get stuck with the clauses from previous attempts.
+            if dp(copy.deepcopy(clauses), {variable: polarity, **resolved}, {literal}, [*depth, literal]):
+                return True
+    return False
 
 
 def extract_vars(clauses: List[Set[int]]):
