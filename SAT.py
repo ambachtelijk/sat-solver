@@ -8,16 +8,10 @@ import mxklabs.dimacs
 from mxklabs.dimacs import Dimacs
 
 start = timeit.default_timer()
-NEG = 'negative'
-POS = 'positive'
-FRQ = 'frequency'
-
-problem_filename = sys.argv[1]
-solvable_filename = sys.argv[2]
 split = sys.argv[3] if 3 in sys.argv else 'dlcs'
 
 
-def main() -> None:
+def main(problem_filename: str, solvable_filename: str) -> None:
     problem: Dimacs = mxklabs.dimacs.read(problem_filename)
     solved: Dimacs = mxklabs.dimacs.read(solvable_filename)
 
@@ -129,7 +123,7 @@ def dp(clauses: List[Set[int]],
         return {
             'cdcl': split_cdcl,
             'dlcs': split_dlcs,
-        }[split](clauses, resolved, unprocessed, depth)
+        }[split](clauses, resolved, depth)
 
     # Found a solution!
     return resolved
@@ -138,53 +132,57 @@ def dp(clauses: List[Set[int]],
 # Conflict-Driven Clause Learning split.
 def split_cdcl(clauses: List[Set[int]],
                resolved: Dict[int, bool],
-               unprocessed: Set[int],
                depth: List[int]) -> Union[bool, Dict[int, bool]]:
+    # while True:
+
+    # implication_graph: Dict[int, Set[int]] = {}
+    # branching_literal: int = clauses.pop().pop()
+    # polar_literal: int = branching_literal * -1
+    # if branching_literal not in implication_graph:
+    #     implication_graph[branching_literal] = set()
+    # for clause in clauses:
+    #     if len(clause) == 2 and polar_literal in clause:
+    #         clause.remove(polar_literal)
+    #         implication_graph[branching_literal].add(clause.pop())
+    # # unresolved = unresolved.union(extract_clause_vars(clause))
     return False
 
 
 # Dynamic Largest Combined Sum split.
 def split_dlcs(clauses: List[Set[int]],
                resolved: Dict[int, bool],
-               unprocessed: Set[int],
                depth: List[int]) -> Union[bool, Dict[int, bool]]:
-    unresolved: Dict[str, Dict[int, int]] = extract_vars(clauses)
+    unresolved_neg: Dict[int, int] = {}
+    unresolved_pos: Dict[int, int] = {}
+    unresolved_frq: Dict[int, int] = {}
+    for clause in clauses:
+        for literal in clause:
+            variable: int = abs(literal)
+            polarity: bool = literal == variable
+            if variable not in unresolved_frq:
+                unresolved_neg[variable] = 0
+                unresolved_pos[variable] = 0
+                unresolved_frq[variable] = 0
+            (unresolved_pos if polarity else unresolved_neg)[variable] += 1
+            unresolved_frq[variable] += 1
+
     # We will resolve the open variables in order of total frequency (both negative and positive literals combined).
-    sort: List[Tuple[int, int]] = [*sorted(unresolved[FRQ].items(), key=lambda x: x[1], reverse=True)]
+    sort: List[Tuple[int, int]] = [*sorted(unresolved_frq.items(), key=lambda x: x[1], reverse=True)]
     for direction in [True, False]:
         for variable, frequency in sort:
-            polarity: bool = direction if unresolved[POS][variable] < unresolved[NEG][variable] else not direction
+            polarity: bool = direction if unresolved_pos[variable] < unresolved_neg[variable] else not direction
             literal: int = variable if polarity else variable * -1
             # Re-run the algorithm with a new literal value.
-            result: Union[bool, Dict[int, bool]] = dp(
+            unresolved: Union[bool, Dict[int, bool]] = dp(
+                # Do a deep copy, because otherwise it gets stuck with clause simplifications from previous attempts.
                 copy.deepcopy(clauses),
                 {variable: polarity, **resolved},
                 {literal},
                 [*depth, literal]
             )
-            # We must do a deep copy, because otherwise we'll get stuck with the clauses from previous attempts.
-            if result:
-                return result
+            if unresolved:
+                return unresolved
     return False
-
-
-def extract_vars(clauses: List[Set[int]]) -> Dict[str, Dict[int, int]]:
-    result: Dict[str, Dict[int, int]] = {
-        NEG: {},
-        POS: {},
-        FRQ: {},
-    }
-    for clause in clauses:
-        for literal in clause:
-            variable: int = abs(literal)
-            polarity: bool = literal == variable
-            if variable not in result[FRQ]:
-                result[NEG][variable] = 0
-                result[POS][variable] = 0
-                result[FRQ][variable] = 0
-            result[POS if polarity else NEG][variable] += 1
-            result[FRQ][variable] += 1
-    return result
 
 
 def extract_clause_vars(clause: Set[int]) -> Set[int]:
@@ -198,6 +196,6 @@ def remove_literal(clause: Set[int], literal: int) -> Set[int]:
     return clause
 
 
-main()
+main(sys.argv[1], sys.argv[2])
 stop = timeit.default_timer()
 print('Time: ', stop - start)
