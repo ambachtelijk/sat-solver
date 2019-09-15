@@ -19,10 +19,9 @@ def main(sudoku_filename: str, output_directory: str, output_prefix: str) -> Non
 
         # How many digits will we need to encode the variables in decimals.
         num_digits: int = math.ceil(math.log10(int(size) + 1))
-        # This will resolve to 100 for 1 digit or 10.000 for 2 digits.
-        counter: int = int(math.pow(10, num_digits * 2))
         # List to store the clauses in
         clauses: List[List[str]] = []
+        counter: int = 0
         current_col: int = int(size)
         current_row: int = 0
 

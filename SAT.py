@@ -1,27 +1,27 @@
 import copy
 import math
 import sys
-import timeit
+import time
 from typing import Set, Dict, List, Union, Tuple
 
 import mxklabs.dimacs
 from mxklabs.dimacs import Dimacs
 
-start = timeit.default_timer()
+start: float = time.perf_counter()
 split = sys.argv[3] if 3 in sys.argv else 'dlcs'
 
 
 def main(problem_filename: str, solvable_filename: str) -> None:
+    globals()['start']: float = time.process_time()
     problem: Dimacs = mxklabs.dimacs.read(problem_filename)
     solved: Dimacs = mxklabs.dimacs.read(solvable_filename)
-
     # Simply prepend the solvable clauses to problem clauses, because the Davis-Putman algorithm will solve the clauses
     # early on anyway, so there is no need to run the algorithm twice.
     clauses: List[Set[int]] = [*map(lambda clause: {*clause}, solved.clauses + problem.clauses)]
     resolved: Dict[int, bool] = {}
     unprocessed: Set[int] = set()
 
-    print("{} clauses".format(len(clauses)))
+    print("Resolving {} {} clauses".format(solvable_filename, len(clauses)))
 
     result: Union[bool, Dict[int, bool]] = dp(clauses, resolved, unprocessed, list())
 
@@ -37,12 +37,16 @@ def main(problem_filename: str, solvable_filename: str) -> None:
             print(positive_vars)
     else:
         print("No solution found.")
+    print("Time: {}\n".format(time.process_time() - globals()['start']))
 
 
 def dp(clauses: List[Set[int]],
        resolved: Dict[int, bool],
        unprocessed: Set[int],
        depth: List[int]) -> Union[bool, Dict[int, bool]]:
+    if time.process_time() - globals()['start'] > 10:
+        raise Exception("Time of 10 seconds exceeded.")
+
     def resolve(_literal: int) -> bool:
         _variable: int = abs(_literal)
         _polarity: bool = _variable == _literal
@@ -196,6 +200,9 @@ def remove_literal(clause: Set[int], literal: int) -> Set[int]:
     return clause
 
 
-main(sys.argv[1], sys.argv[2])
-stop = timeit.default_timer()
-print('Time: ', stop - start)
+# main(sys.argv[1], sys.argv[2])
+for i in range(1000):
+    try:
+        main(sys.argv[1], 'input/encoded/1000sudokus-{}.cnf'.format(str(i).rjust(4, '0')))
+    except Exception as e:
+        print(str(e), "\n")
