@@ -1,7 +1,8 @@
 import copy
+import math
 import sys
 import timeit
-from typing import Set, Dict, List
+from typing import Set, Dict, List, Union
 
 import mxklabs.dimacs
 
@@ -15,7 +16,7 @@ solvable_filename = sys.argv[2]
 split = sys.argv[3] if 3 in sys.argv else 'dlcs'
 
 
-def main():
+def main() -> None:
     problem = mxklabs.dimacs.read(problem_filename)
     solved = mxklabs.dimacs.read(solvable_filename)
 
@@ -27,21 +28,27 @@ def main():
 
     print("{} clauses".format(len(clauses)))
 
-    result: bool = dp(clauses, resolved, unprocessed, list())
+    result: Union[bool, Dict[int, bool]] = dp(clauses, resolved, unprocessed, list())
 
+    positive_vars: List[int] = [*sorted(filter(lambda _variable: result[_variable], result))]
     if result:
-        print("Solution found. {} variables resolved."
-              .format(len(resolved)))
+        print("Solution found. {} variables resolved, {} positive vars.".format(len(result), len(positive_vars)))
+        sqrt = math.sqrt(len(positive_vars))
+        if sqrt.is_integer():
+            for row in range(int(sqrt)):
+                print(positive_vars[:int(sqrt)])
+                positive_vars = positive_vars[int(sqrt):]
+        else:
+            print(positive_vars)
     else:
-        print("No solution found. {} variables resolved."
-              .format(len(resolved)))
+        print("No solution found.")
 
 
 def dp(clauses: List[Set[int]],
        resolved: Dict[int, bool],
        unprocessed: Set[int],
-       depth):
-    def resolve(_literal: int):
+       depth: List[int]) -> Union[bool, Dict[int, bool]]:
+    def resolve(_literal: int) -> bool:
         _variable: int = abs(_literal)
         _polarity: bool = _variable == _literal
         # Only write to resolved and unprocessed when necessary.
@@ -57,7 +64,7 @@ def dp(clauses: List[Set[int]],
     for literal in unprocessed:
         polar_literal = literal * -1
         # Remove the whole clause if it contains the resolved literal (therefore the clause resolves to True).
-        clauses = filter(lambda _clause: literal not in _clause, clauses)
+        clauses = [*filter(lambda _clause: literal not in _clause, clauses)]
         # Remove the opposite literal from the clause, because the instance will resolve to False.
         clauses = [*map(lambda _clause: remove_literal(_clause, polar_literal), clauses)]
 
@@ -82,7 +89,7 @@ def dp(clauses: List[Set[int]],
         # Test for unit clauses.
         if clause_length == 1:
             clauses.remove(clause)
-            if not resolve(clause.pop()):
+            if not resolve([*clause][0]):
                 return False
             continue
 
@@ -107,7 +114,7 @@ def dp(clauses: List[Set[int]],
 
     # Test for an empty set of clauses, which means that we're done with the parsing.
     if len(clauses) == 0:
-        return True
+        return resolved
 
     # There is still something to process, rerun with the current context.
     elif len(unprocessed) != 0:
@@ -122,23 +129,22 @@ def dp(clauses: List[Set[int]],
 def split_dlcs(clauses: List[Set[int]],
                resolved: Dict[int, bool],
                unprocessed: Set[int],
-               depth):
+               depth: List[int]) -> Union[bool, Dict[int, bool]]:
     unresolved: Dict[str, Dict[int, int]] = extract_vars(clauses)
     sort = sorted(unresolved[FRQ].items(), key=lambda x: x[1], reverse=True)
-    for direction in [True]:
+    for direction in [True, False]:
         for variable, frequency in sort:
-            # polarity = direction if unresolved[POS][variable] < unresolved[NEG][variable] else not direction
-            polarity = direction
+            polarity = direction if unresolved[POS][variable] < unresolved[NEG][variable] else not direction
             literal = variable if polarity else variable * -1
 
-            print("Stack {} Trying {}".format(depth, literal))
+            result = dp(copy.deepcopy(clauses), {variable: polarity, **resolved}, {literal}, [*depth, literal])
             # We must do a deep copy, because otherwise we'll get stuck with the clauses from previous attempts.
-            if dp(copy.deepcopy(clauses), {variable: polarity, **resolved}, {literal}, [*depth, literal]):
-                return True
+            if result:
+                return result
     return False
 
 
-def extract_vars(clauses: List[Set[int]]):
+def extract_vars(clauses: List[Set[int]]) -> Dict[str, Dict[int, int]]:
     result: Dict[str, Dict[int, int]] = {
         NEG: {},
         POS: {},
@@ -157,12 +163,12 @@ def extract_vars(clauses: List[Set[int]]):
     return result
 
 
-def extract_clause_vars(clause: Set[int]):
+def extract_clause_vars(clause: Set[int]) -> Set[int]:
     # Get the variable name from all literals in the clause by removing any hyphens.
     return {*map(lambda literal: abs(literal), clause)}
 
 
-def remove_literal(clause: Set[int], literal: int):
+def remove_literal(clause: Set[int], literal: int) -> Set[int]:
     if literal in clause:
         clause.remove(literal)
     return clause
