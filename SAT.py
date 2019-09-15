@@ -14,7 +14,7 @@ FRQ = 'frequency'
 
 problem_filename = sys.argv[1]
 solvable_filename = sys.argv[2]
-split = sys.argv[3] if 3 in sys.argv else 'dlcs'
+split = sys.argv[3] if 3 in sys.argv else 'cdcl'
 
 
 def main() -> None:
@@ -80,6 +80,8 @@ def dp(clauses: List[Set[int]],
         # Test for empty clauses.
         # @TODO Fix DIMACS parser that it won't drop empty clauses from the input file.
         if clause_length == 0:
+            # This empty clause is likely to be caused by a contradiction that occurred when all literals were removed
+            # from this clause during the processing of the newly resolved variables.
             return False
 
         # Test for tautologies.
@@ -91,6 +93,7 @@ def dp(clauses: List[Set[int]],
         # Test for unit clauses.
         if clause_length == 1:
             clauses.remove(clause)
+            # Since there is only one literal left in this clause, we can resolve it to True (called unit propagation).
             if not resolve([*clause][0]):
                 # We encountered a contradiction.
                 return False
@@ -116,25 +119,36 @@ def dp(clauses: List[Set[int]],
             # We encountered a contradiction.
             return False
 
-    # Test for an empty set of clauses, which means that we're done with the parsing.
-    if len(clauses) == 0:
-        return resolved
-
     # There is still something to process, rerun with the current context.
-    elif len(unprocessed) != 0:
+    if len(unprocessed) != 0:
         return dp(clauses, resolved, unprocessed, depth)
 
-    # Perform a Split operation.
-    return {
-        'dlcs': split_dlcs,
-    }[split](clauses, resolved, unprocessed, depth)
+    # Test if there are still unresolved clauses, which means that we're not done yet with parsing.
+    elif len(clauses) != 0:
+        # Perform a Split operation.
+        return {
+            'cdcl': split_cdcl,
+            'dlcs': split_dlcs,
+        }[split](clauses, resolved, unprocessed, depth)
+
+    # Found a solution!
+    return resolved
 
 
+# Conflict-Driven Clause Learning split.
+def split_cdcl(clauses: List[Set[int]],
+               resolved: Dict[int, bool],
+               unprocessed: Set[int],
+               depth: List[int]) -> Union[bool, Dict[int, bool]]:
+    return resolved
+
+# Dynamic Largest Combined Sum split.
 def split_dlcs(clauses: List[Set[int]],
                resolved: Dict[int, bool],
                unprocessed: Set[int],
                depth: List[int]) -> Union[bool, Dict[int, bool]]:
     unresolved: Dict[str, Dict[int, int]] = extract_vars(clauses)
+    # We will resolve the open variables in order of total frequency (both negative and positive literals combined).
     sort: List[Tuple[int, int]] = [*sorted(unresolved[FRQ].items(), key=lambda x: x[1], reverse=True)]
     for direction in [True, False]:
         for variable, frequency in sort:
