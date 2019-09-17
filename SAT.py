@@ -23,7 +23,7 @@ def main(problem_filename: str, solvable_filename: str) -> None:
 
     print("Resolving {} {} clauses".format(solvable_filename, len(clauses)))
 
-    result: Union[bool, Dict[int, bool]] = dp(clauses, resolved, unprocessed, list())
+    result: Union[bool, Dict[int, bool]] = dp(clauses, resolved, unprocessed, [])
 
     if result:
         positive_vars: List[int] = [*sorted(filter(lambda _variable: result[_variable], result))]
@@ -67,7 +67,7 @@ def dp(clauses: List[Set[int]],
         # Remove the opposite literal from the clause, because the instance will resolve to False.
         clauses: List[Set[int]] = [*map(lambda _clause: remove_literal(_clause, polar_literal), clauses)]
 
-    # Test for pure literals
+    # Test for pure literals.
     pure_literals: Dict[int, int] = {}
     rejected_variables: Set[int] = set()
     unprocessed: Set[int] = set()
@@ -172,20 +172,20 @@ def split_dlcs(clauses: List[Set[int]],
 
     # We will resolve the open variables in order of total frequency (both negative and positive literals combined).
     sort: List[Tuple[int, int]] = [*sorted(unresolved_frq.items(), key=lambda x: x[1], reverse=True)]
-    for direction in [True, False]:
-        for variable, frequency in sort:
+    for variable, frequency in sort:
+        for direction in [True, False]:
             polarity: bool = direction if unresolved_pos[variable] < unresolved_neg[variable] else not direction
             literal: int = variable if polarity else variable * -1
             # Re-run the algorithm with a new literal value.
-            unresolved: Union[bool, Dict[int, bool]] = dp(
+            resolved: Union[bool, Dict[int, bool]] = dp(
                 # Do a deep copy, because otherwise it gets stuck with clause simplifications from previous attempts.
                 copy.deepcopy(clauses),
                 {variable: polarity, **resolved},
                 {literal},
                 [*depth, literal]
             )
-            if unresolved:
-                return unresolved
+            if resolved:
+                return resolved
     return False
 
 
@@ -200,9 +200,9 @@ def remove_literal(clause: Set[int], literal: int) -> Set[int]:
     return clause
 
 
-# main(sys.argv[1], sys.argv[2])
-for i in range(1000):
-    try:
-        main(sys.argv[1], 'input/encoded/1000sudokus-{}.cnf'.format(str(i).rjust(4, '0')))
-    except Exception as e:
-        print(str(e), "\n")
+main(sys.argv[1], sys.argv[2])
+# for i in range(1000):
+#     try:
+#         main(sys.argv[1], 'input/encoded/4x4-{}.cnf'.format(str(i).rjust(4, '0')))
+#     except Exception as e:
+#         print(str(e), "\n")
