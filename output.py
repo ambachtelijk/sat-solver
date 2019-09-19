@@ -9,13 +9,14 @@ import os
 
 
 # Writes an output file in DIMACS format
-def outputFile(output_directory: str, filename_out: str,
-               resolved_dict: Dict[int, bool]):  # moet nog ' filename_out: str,' bij
+def outputFile(output_directory: str,
+               filename_out: str,
+               resolved_dict: Dict[int, bool]):
     file_out: str = os.path.join(output_directory, filename_out)
     output_file: IO = open(file_out, 'w')
     output_file.write("p cnf {} {}\n".format(str(max(resolved_dict)), str(len(resolved_dict))))
 
-    # Creates a list of all truth statements for output file
+    # Writes every element of dict in new line of output file
     for clause_out in resolved_dict:
         if not resolved_dict[clause_out]:
             clause_out *= -1
