@@ -2,13 +2,13 @@ import copy
 import math
 import sys
 import time
-from typing import Set, Dict, List, Union, Tuple
+from typing import Set, Dict, List, Tuple
 
 import mxklabs.dimacs
 from mxklabs.dimacs import Dimacs
 
 start: float = time.perf_counter()
-split = sys.argv[3] if 3 in sys.argv else 'dlcs'
+split = sys.argv[3] if len(sys.argv) >= 4 else 'dlcs'
 
 
 def main(problem_filename: str, solvable_filename: str) -> None:
@@ -21,11 +21,11 @@ def main(problem_filename: str, solvable_filename: str) -> None:
 
     print("Resolving {} {} clauses".format(solvable_filename, len(clauses)))
 
-    result: Union[bool, Dict[int, bool]] = dp(clauses, {}, set())
+    success, resolved = dp(clauses, {}, set())
 
-    if result:
-        positive_vars: List[int] = [*sorted(filter(lambda _variable: result[_variable], result))]
-        print("Solution found. {} variables resolved, {} positive vars.".format(len(result), len(positive_vars)))
+    if success:
+        positive_vars: List[int] = [*sorted(filter(lambda _variable: resolved[_variable], resolved))]
+        print("Solution found. {} variables resolved, {} positive vars.".format(len(resolved), len(positive_vars)))
         sqrt: float = math.sqrt(len(positive_vars))
         if sqrt.is_integer():
             for row in range(int(sqrt)):
@@ -38,13 +38,22 @@ def main(problem_filename: str, solvable_filename: str) -> None:
     print("Time: {}\n".format(time.process_time() - globals()['start']))
 
 
+def simplify(clauses: List[Set[int]], literals: Set[int]):
+    # Remove all clauses that contain a resolved variable.
+    for literal in literals:
+        polar_literal: int = literal * -1
+        # Remove the whole clause if it contains the resolved literal (therefore the clause resolves to True).
+        clauses: List[Set[int]] = [*filter(lambda _clause: literal not in _clause, clauses)]
+        # Remove the opposite literal from the clause, because the instance will resolve to False.
+        clauses: List[Set[int]] = [*map(lambda _clause: remove_literal(_clause, polar_literal), clauses)]
+    return clauses
+
+
 def dp(clauses: List[Set[int]],
        resolved: Dict[int, bool],
        unprocessed: Set[int],
-       **split_vars) -> Union[bool, Dict[int, bool]]:
-    if time.process_time() - globals()['start'] > 30:
-        raise Exception("Time of 30 seconds exceeded.")
-
+       call_split: bool = True,
+       **split_vars) -> Tuple[bool, Dict[int, bool]]:
     def resolve(_literal: int) -> bool:
         _variable: int = abs(_literal)
         _polarity: bool = _variable == _literal
@@ -57,13 +66,10 @@ def dp(clauses: List[Set[int]],
             return False
         return True
 
-    # Remove all clauses that contain a resolved variable.
-    for literal in unprocessed:
-        polar_literal: int = literal * -1
-        # Remove the whole clause if it contains the resolved literal (therefore the clause resolves to True).
-        clauses: List[Set[int]] = [*filter(lambda _clause: literal not in _clause, clauses)]
-        # Remove the opposite literal from the clause, because the instance will resolve to False.
-        clauses: List[Set[int]] = [*map(lambda _clause: remove_literal(_clause, polar_literal), clauses)]
+    if time.process_time() - globals()['start'] > 30:
+        raise Exception("Time of 30 seconds exceeded.")
+
+    clauses = simplify(clauses, unprocessed)
 
     # Test for pure literals.
     pure_literals: Dict[int, int] = {}
@@ -78,7 +84,7 @@ def dp(clauses: List[Set[int]],
         if clause_length == 0:
             # This empty clause is likely to be caused by a contradiction that occurred when all literals were removed
             # from this clause during the processing of the newly resolved variables.
-            return False
+            return False, resolved
 
         # Test for tautologies.
         if clause_length != len(extract_clause_vars(clause)):
@@ -92,7 +98,7 @@ def dp(clauses: List[Set[int]],
             # Since there is only one literal left in this clause, we can resolve it to True (called unit propagation).
             if not resolve([*clause][0]):
                 # We encountered a contradiction.
-                return False
+                return False, resolved
             continue
 
         # Keep track of all pure literals that we may encounter.
@@ -113,14 +119,14 @@ def dp(clauses: List[Set[int]],
     for variable in pure_literals:
         if not resolve(pure_literals[variable]):
             # We encountered a contradiction.
-            return False
+            return False, resolved
 
     # There is still something to process, rerun with the current context.
     if len(unprocessed) != 0:
-        return dp(clauses, resolved, unprocessed, **split_vars)
+        return dp(clauses, resolved, unprocessed, call_split, **split_vars)
 
     # Test if there are still unresolved clauses, which means that we're not done yet with parsing.
-    elif len(clauses) != 0:
+    elif call_split and len(clauses) != 0:
         # Perform a Split operation.
         return {
             'cdcl': split_cdcl,
@@ -128,13 +134,24 @@ def dp(clauses: List[Set[int]],
         }[split](clauses, resolved, **split_vars)
 
     # Found a solution!
-    return resolved
+    return True, resolved
 
 
 # Conflict-Driven Clause Learning split.
 def split_cdcl(clauses: List[Set[int]],
-               resolved: Dict[int, bool],
-               extra: List[int]) -> Union[bool, Dict[int, bool]]:
+               resolved: Dict[int, bool]) -> Tuple[bool, Dict[int, bool]]:
+    unresolved: Set[int] = set()
+    for clause in clauses:
+        unresolved = unresolved.union(extract_clause_vars(clause))
+
+    forced_assignment = set()
+    for variable in unresolved:
+        success, _resolved = dp(copy.deepcopy(clauses), {**resolved}, {variable}, False)
+        forced_assignment = forced_assignment.union({*_resolved} - {*resolved})
+        len_resolved = len(resolved)
+        len__resolved = len(_resolved)
+        print(len(_resolved))
+
     # while True:
 
     # implication_graph: Dict[int, Set[int]] = {}
@@ -148,14 +165,14 @@ def split_cdcl(clauses: List[Set[int]],
     #         clause.remove(polar_literal)
     #         implication_graph[branching_literal].add(clause.pop())
     # # unresolved = unresolved.union(extract_clause_vars(clause))
-    return False
+    return False, resolved
 
 
 # Dynamic Largest Combined Sum split.
 def split_dlcs(clauses: List[Set[int]],
                resolved: Dict[int, bool],
                backtrace: List[int] = None,
-               stack: List[int] = None) -> Union[bool, Dict[int, bool]]:
+               stack: List[int] = None) -> Tuple[bool, Dict[int, bool]]:
     if backtrace is None:
         backtrace = []
     if stack is None:
@@ -186,7 +203,7 @@ def split_dlcs(clauses: List[Set[int]],
             polarity: bool = direction if unresolved_pos[variable] > unresolved_neg[variable] else not direction
             literal: int = variable if polarity else variable * -1
             # Re-run the algorithm with a new literal value.
-            result: Union[bool, Dict[int, bool]] = dp(
+            success, _resolved = dp(
                 # Do a deep copy, because otherwise it gets stuck with clause simplifications from previous attempts.
                 copy.deepcopy(clauses),
                 {variable: polarity, **resolved},
@@ -194,11 +211,11 @@ def split_dlcs(clauses: List[Set[int]],
                 backtrace=[*backtrace],
                 stack=[*stack, literal]
             )
-            if result:
-                return result
+            if success:
+                return success, _resolved
             # Append the current literal to the backtrace, so that it won't get scanned again.
             backtrace.append(literal)
-    return False
+    return False, resolved
 
 
 def extract_clause_vars(clause: Set[int]) -> Set[int]:
@@ -212,9 +229,9 @@ def remove_literal(clause: Set[int], literal: int) -> Set[int]:
     return clause
 
 
-# main(sys.argv[1], sys.argv[2])
-for i in range(1000):
-    try:
-        main(sys.argv[1], 'input/encoded/1000sudokus-{}.cnf'.format(str(i).rjust(4, '0')))
-    except Exception as e:
-        print("Exception: ", str(e), "\n")
+main(sys.argv[1], sys.argv[2])
+# for i in range(1000):
+#     try:
+#         main('input/rules/sudoku-rules-4x4.txt', 'input/encoded/4x4-{}.cnf'.format(str(i).rjust(4, '0'), 'dc'))
+#     except Exception as e:
+#         print("Exception: ", str(e), "\n")
