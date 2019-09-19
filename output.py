@@ -21,5 +21,7 @@ def outputFile(output_directory: str, filename_out: str,
             clause_out *= -1
         output_file.write("{} 0\n".format(str(clause_out)))
 
+    output_file.close()
+
 # Uncomment to test code
 # outputFile(path, 'test_out.txt', test_dict)
