@@ -18,12 +18,10 @@ def main(problem_filename: str, solvable_filename: str) -> None:
     # Simply prepend the solvable clauses to problem clauses, because the Davis-Putman algorithm will solve the clauses
     # early on anyway, so there is no need to run the algorithm twice.
     clauses: List[Set[int]] = [*map(lambda clause: {*clause}, solved.clauses + problem.clauses)]
-    resolved: Dict[int, bool] = {}
-    unprocessed: Set[int] = set()
 
     print("Resolving {} {} clauses".format(solvable_filename, len(clauses)))
 
-    result: Union[bool, Dict[int, bool]] = dp(clauses, resolved, unprocessed, list())
+    result: Union[bool, Dict[int, bool]] = dp(clauses, {}, set())
 
     if result:
         positive_vars: List[int] = [*sorted(filter(lambda _variable: result[_variable], result))]
@@ -43,9 +41,9 @@ def main(problem_filename: str, solvable_filename: str) -> None:
 def dp(clauses: List[Set[int]],
        resolved: Dict[int, bool],
        unprocessed: Set[int],
-       depth: List[int]) -> Union[bool, Dict[int, bool]]:
-    if time.process_time() - globals()['start'] > 10:
-        raise Exception("Time of 10 seconds exceeded.")
+       **split_vars) -> Union[bool, Dict[int, bool]]:
+    if time.process_time() - globals()['start'] > 30:
+        raise Exception("Time of 30 seconds exceeded.")
 
     def resolve(_literal: int) -> bool:
         _variable: int = abs(_literal)
@@ -67,7 +65,7 @@ def dp(clauses: List[Set[int]],
         # Remove the opposite literal from the clause, because the instance will resolve to False.
         clauses: List[Set[int]] = [*map(lambda _clause: remove_literal(_clause, polar_literal), clauses)]
 
-    # Test for pure literals
+    # Test for pure literals.
     pure_literals: Dict[int, int] = {}
     rejected_variables: Set[int] = set()
     unprocessed: Set[int] = set()
@@ -119,7 +117,7 @@ def dp(clauses: List[Set[int]],
 
     # There is still something to process, rerun with the current context.
     if len(unprocessed) != 0:
-        return dp(clauses, resolved, unprocessed, depth)
+        return dp(clauses, resolved, unprocessed, **split_vars)
 
     # Test if there are still unresolved clauses, which means that we're not done yet with parsing.
     elif len(clauses) != 0:
@@ -127,7 +125,7 @@ def dp(clauses: List[Set[int]],
         return {
             'cdcl': split_cdcl,
             'dlcs': split_dlcs,
-        }[split](clauses, resolved, depth)
+        }[split](clauses, resolved, **split_vars)
 
     # Found a solution!
     return resolved
@@ -136,9 +134,10 @@ def dp(clauses: List[Set[int]],
 # Conflict-Driven Clause Learning split.
 def split_cdcl(clauses: List[Set[int]],
                resolved: Dict[int, bool],
-               depth: List[int]) -> Union[bool, Dict[int, bool]]:
+               extra: List[int]) -> Union[bool, Dict[int, bool]]:
     # while True:
 
+    # implication_graph: Dict[int, Set[int]] = {}
     # implication_graph: Dict[int, Set[int]] = {}
     # branching_literal: int = clauses.pop().pop()
     # polar_literal: int = branching_literal * -1
@@ -155,12 +154,21 @@ def split_cdcl(clauses: List[Set[int]],
 # Dynamic Largest Combined Sum split.
 def split_dlcs(clauses: List[Set[int]],
                resolved: Dict[int, bool],
-               depth: List[int]) -> Union[bool, Dict[int, bool]]:
+               backtrace: List[int] = None,
+               stack: List[int] = None) -> Union[bool, Dict[int, bool]]:
+    if backtrace is None:
+        backtrace = []
+    if stack is None:
+        stack = []
+
+    # Get all variables from the clauses.
     unresolved_neg: Dict[int, int] = {}
     unresolved_pos: Dict[int, int] = {}
     unresolved_frq: Dict[int, int] = {}
     for clause in clauses:
         for literal in clause:
+            if literal in backtrace:
+                continue
             variable: int = abs(literal)
             polarity: bool = literal == variable
             if variable not in unresolved_frq:
@@ -172,20 +180,24 @@ def split_dlcs(clauses: List[Set[int]],
 
     # We will resolve the open variables in order of total frequency (both negative and positive literals combined).
     sort: List[Tuple[int, int]] = [*sorted(unresolved_frq.items(), key=lambda x: x[1], reverse=True)]
-    for direction in [True, False]:
-        for variable, frequency in sort:
-            polarity: bool = direction if unresolved_pos[variable] < unresolved_neg[variable] else not direction
+    # for variable in sorted(unresolved_frq):
+    for variable, frq in sort:
+        for direction in [True, False]:
+            polarity: bool = direction if unresolved_pos[variable] > unresolved_neg[variable] else not direction
             literal: int = variable if polarity else variable * -1
             # Re-run the algorithm with a new literal value.
-            unresolved: Union[bool, Dict[int, bool]] = dp(
+            result: Union[bool, Dict[int, bool]] = dp(
                 # Do a deep copy, because otherwise it gets stuck with clause simplifications from previous attempts.
                 copy.deepcopy(clauses),
                 {variable: polarity, **resolved},
                 {literal},
-                [*depth, literal]
+                backtrace=[*backtrace],
+                stack=[*stack, literal]
             )
-            if unresolved:
-                return unresolved
+            if result:
+                return result
+            # Append the current literal to the backtrace, so that it won't get scanned again.
+            backtrace.append(literal)
     return False
 
 
@@ -205,4 +217,4 @@ for i in range(1000):
     try:
         main(sys.argv[1], 'input/encoded/1000sudokus-{}.cnf'.format(str(i).rjust(4, '0')))
     except Exception as e:
-        print(str(e), "\n")
+        print("Exception: ", str(e), "\n")
