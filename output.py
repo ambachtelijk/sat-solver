@@ -5,7 +5,6 @@ import os
 # Uncomment to test code
 # test_dict = {111: True, 112: True, 113: False, 567: True, 783: False}
 # path = 'C:\Studie Projecten\SAT Solver\output'
-# file_out: str = os.path.join(path, 'test_out.txt')
 
 
 # Writes an output file in DIMACS format
