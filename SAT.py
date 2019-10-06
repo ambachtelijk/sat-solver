@@ -1,34 +1,31 @@
 import copy
-import csv
 import math
 import os
 import sys
 import time
-import traceback
 from typing import Set, Dict, List, Tuple, IO, Optional
 
 import mxklabs.dimacs
 from mxklabs.dimacs import Dimacs
 
 start: float = time.perf_counter()
+dp_call = 0
+literal_search = 0
+literal_iteration = 0
 
 PREPROCESS = True
 PURE_LITERALS = False
 
 
 # noinspection PyBroadException
-def main(problem_filename: str, solvable_filename: str) -> None:
+def main() -> None:
     globals()['start']: float = time.process_time()
     success = True
     try:
         problem: Dimacs = mxklabs.dimacs.read(problem_filename)
-        solved: Dimacs = mxklabs.dimacs.read(solvable_filename)
         # Simply prepend the solvable clauses to problem clauses, because the Davis-Putman algorithm will solve the
         # clauses early on anyway, so there is no need to run the algorithm twice.
-        clauses: List[Set[int]] = [*map(lambda _clause: {*_clause}, solved.clauses + problem.clauses)]
-
-        print("Resolving {} {} clauses".format(solvable_filename, len(clauses)))
-
+        clauses: List[Set[int]] = [*map(lambda _clause: {*_clause}, problem.clauses)]
         solution = dict.fromkeys(sorted({abs(literal) for clause in clauses for literal in clause}), None)
         unprocessed: Set[int] = set()
 
@@ -56,6 +53,7 @@ def main(problem_filename: str, solvable_filename: str) -> None:
         if success:
             positive_vars: List[int] = [*sorted(filter(lambda _variable: solution[_variable], solution))]
             print("Solution found. {} variables solution, {} positive vars.".format(len(solution), len(positive_vars)))
+            write_dimacs(problem_filename + '.out', solution)
             sqrt: float = math.sqrt(len(positive_vars))
             if sqrt.is_integer():
                 for row in range(int(sqrt)):
@@ -82,9 +80,9 @@ def dp(clauses: List[Set[int]],
        solution: Dict[int, Optional[bool]],
        unprocessed: Set[int],
        **extra_vars) -> Tuple[bool, Dict[int, bool], List[Set[int]], Optional[int]]:
+    if globals()['dp_call'] > 1000000:
+        raise Exception("Unsolvable, limit of 1.000.000 DP calls exceeded.")
     count_dp()
-    if globals()['dp_call'] > 10000:
-        raise Exception("Unsolvable, limit of 10000 DP calls exceeded.")
 
     # Test for pure literals.
     pure_literals: Dict[int, int] = {}
@@ -333,10 +331,8 @@ def split_fifo(clauses: List[Set[int]],
 # test_dict = {111: True, 112: True, 113: False, 567: True, 783: False}
 # path = 'C:\Studie Projecten\SAT Solver\output'
 # Writes an output file in DIMACS format
-def write_dimacs(output_directory: str,
-                 filename_out: str,
-                 solution: Dict[int, bool]):
-    file_out: str = os.path.join(output_directory, filename_out)
+def write_dimacs(filename_out: str, solution: Dict[int, bool]):
+    file_out: str = os.path.join(filename_out)
     output_file: IO = open(file_out, 'w')
     output_file.write("p cnf {} {}\n".format(str(max(solution)), str(len(solution))))
 
@@ -416,25 +412,35 @@ def count_literal_search():
     globals()['literal_search'] += 1
 
 
-offset = int(sys.argv[3]) if len(sys.argv) >= 4 else 0
-splits = [sys.argv[4]] if len(sys.argv) >= 5 else [
-    'fifo', 'fifo_reversed', 'fifo_negative_only', 'fifo_positive_only',
-    'dlcs', 'dlcs_reversed', 'dlcs_negative_only', 'dlcs_positive_only',
-    'dlis', 'dlis_reversed', 'dlis_negative_only', 'dlis_positive_only',
-]
+splits = {'-S1': 'fifo', '-S2': 'dlcs-reversed', '-S3': 'dlis-reversed'}
+if sys.argv[1] not in splits:
+    print("Value of first argument is '{}', '-S1' '-S2' or '-S3' expected.".format(sys.argv[1]))
+elif not os.path.exists(sys.argv[2]):
+    print("File from second argument does not exist: '{}'".format(sys.argv[2]))
+else:
+    split = splits[sys.argv[1]]
+    problem_filename = sys.argv[2]
+    main()
 
-with open("output/stats-{}.csv".format(offset), mode='w', newline='') as stats_file:
-    stats = csv.writer(stats_file)
+# offset = int(sys.argv[3]) if len(sys.argv) >= 4 else 0
+# splits = [sys.argv[4]] if len(sys.argv) >= 5 else [
+#     'fifo', 'fifo_reversed', 'fifo_negative_only', 'fifo_positive_only',
+#     'dlcs', 'dlcs_reversed', 'dlcs_negative_only', 'dlcs_positive_only',
+#     'dlis', 'dlis_reversed', 'dlis_negative_only', 'dlis_positive_only',
+# ]
 
-    stats.writerow(['sudoku', 'split', 'dp_call', 'literal_iteration', 'literal_search'])
-    for i in range(offset, offset + 100):
-        for split in splits:
-            print("Split: " + split)
-            globals()['literal_iteration'] = 0
-            globals()['literal_search'] = 0
-            globals()['dp_call'] = 0
-            main(sys.argv[1], sys.argv[2].format(str(i).rjust(4, '0'), 'dc'))
-            stats.writerow(
-                [i, split, globals()['dp_call'], globals()['literal_iteration'], globals()['literal_search']])
-
-        stats_file.flush()
+# with open("output/stats-{}.csv".format(offset), mode='w', newline='') as stats_file:
+#     stats = csv.writer(stats_file)
+#
+#     stats.writerow(['sudoku', 'split', 'dp_call', 'literal_iteration', 'literal_search'])
+#     for i in range(offset, offset + 100):
+#         for split in splits:
+#             print("Split: " + split)
+#             globals()['literal_iteration'] = 0
+#             globals()['literal_search'] = 0
+#             globals()['dp_call'] = 0
+#             main(sys.argv[1], sys.argv[2].format(str(i).rjust(4, '0'), 'dc'))
+#             stats.writerow(
+#                 [i, split, globals()['dp_call'], globals()['literal_iteration'], globals()['literal_search']])
+#
+#         stats_file.flush()
