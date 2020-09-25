@@ -1,3 +1,4 @@
+import collections
 import copy
 from typing import List, Dict, Set, Tuple, Optional
 
@@ -5,40 +6,45 @@ from solver.Solver import Solver
 
 
 class MostFrequent(Solver):
-    # noinspection DuplicatedCode
+    """Most Frequent Last Digit split"""
+
+    # noinspection PyMethodOverriding,DuplicatedCode
     def _split(
             self,
             clauses: List[Set[int]],
             solution: Dict[int, bool],
             order: List[bool],
-            backtrace: Set[int] = None,
-            stack: List[int] = None
+            reverse: bool = False
     ) -> Tuple[bool, Dict[int, bool], List[Set[int]], Optional[int]]:
-        if backtrace is None:
-            backtrace = set()
-        if stack is None:
-            stack = []
+        most_common = collections.Counter([
+            variable % 10 for variable, polarity in solution.items()
+            if polarity is True
+        ]).most_common()
+        rankings = dict((frequency[0], ranking) for ranking, frequency in enumerate(most_common))
 
-        # We will resolve the open variables in order of total frequency (both negative and positive literals combined).
+        unresolved_variables = [variable for variable, polarity in solution.items() if polarity is None]
+        unresolved_variables.sort(
+            key=lambda variable: rankings[variable % 10] if variable % 10 in rankings else 10,
+            reverse=reverse
+        )
+
         for direction in order:
-            for variable, polarity in solution.items():
-                if polarity is not None or variable in backtrace or variable * -1 in backtrace:
+            for variable in unresolved_variables:
+                literal: int = variable if direction else variable * -1
+
+                # Make a deep copy, because otherwise it gets stuck with clause simplifications from previous
+                # attempts.
+                clauses_copy = copy.deepcopy(clauses)
+                solution_copy = {**solution}
+
+                # Add the literal to the solution.
+                if not self._resolve(literal, clauses_copy, solution_copy):
                     continue
 
-                literal: int = variable if direction else variable * -1
-                # Append the current literal to the backtrace, so that it won't get scanned again.
-                backtrace.add(literal)
+                # Re-run the DP algorithm with the new literal value added to the solution.
+                success, _solution, _clauses, conflict = self._dp(clauses_copy, solution_copy, order=order)
 
-                # Re-run the algorithm with a new literal value.
-                success, _resolved, _clauses, conflict = self._dp(
-                    # Do a deep copy, because otherwise it gets stuck with clause simplifications from previous attempts
-                    copy.deepcopy(clauses),
-                    {**solution, variable: direction},
-                    {literal},
-                    backtrace={*backtrace},
-                    stack=[*stack, literal],
-                    order=order
-                )
                 if success:
-                    return success, _resolved, _clauses, None
+                    return success, _solution, _clauses, None
+
         return False, solution, clauses, None

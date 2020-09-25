@@ -32,6 +32,7 @@ class Solver(ABC):
         self.start: float = 0
         self.end: float = 0
         self.dp_calls: int = 0
+        self.split_calls: int = 0
         self.solution_attempts: int = 0
         self.known: Set[int] = {[*clause][0] for clause in self.clauses if len(clause) == 1}
         self.frequencies = collections.Counter([literal % 10 for literal in self.known]).most_common()
@@ -80,6 +81,7 @@ class Solver(ABC):
 
         # Test if there are still unresolved clauses, which means that we're not done yet with parsing.
         if len(clauses) != 0:
+            self.split_calls += 1
             # Perform a Split operation.
             return self._split(clauses, solution, **extra_vars)
 

@@ -37,7 +37,7 @@ with open("output/stats-{}-{}.csv".format(offset, end), mode='w', newline='') as
 
         for split in splits:
             print("Split:  {}".format(split))
-            solver = get_solver(split, input_filename, True, False)
+            solver = get_solver(split, input_filename)
 
             success, solution, clauses, conflict = solver.solve(order=get_order(split))
             print_solution(success, solution)

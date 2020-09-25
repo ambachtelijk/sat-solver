@@ -14,11 +14,9 @@ class DLIS(Solver):
             order: List[bool]
     ) -> Tuple[bool, Dict[int, bool], List[Set[int]], Optional[int]]:
         # Get all variables from the clauses.
-        unresolved_variables = {
-            variable for variable, polarity in solution.items()
-            if polarity is None
-        }
+        unresolved_variables = {variable for variable, polarity in solution.items() if polarity is None}
         frequencies: Dict[int, int] = {}
+
         for clause in clauses:
             for literal in clause:
                 variable = abs(literal)

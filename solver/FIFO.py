@@ -13,11 +13,7 @@ class FIFO(Solver):
             solution: Dict[int, bool],
             order: List[bool]
     ) -> Tuple[bool, Dict[int, bool], List[Set[int]], Optional[int]]:
-        # print_sudoku(solution)
-        unresolved_variables = {
-            variable for variable, polarity in solution.items()
-            if polarity is None
-        }
+        unresolved_variables = { variable for variable, polarity in solution.items() if polarity is None}
 
         for direction in order:
             for variable in unresolved_variables:
