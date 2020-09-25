@@ -6,7 +6,7 @@ from mxklabs.dimacs import Dimacs
 from abc import ABC, abstractmethod
 from typing import Set, Dict, List, Tuple, Optional
 
-DP_LIMIT = 2500
+DP_LIMIT = 10000
 PURE_LITERALS = False
 
 
@@ -43,7 +43,6 @@ class Solver(ABC):
         except Exception as e:
             self.end = time.process_time()
             print(e)
-            # print(traceback.format_exc())
             return False, None, None, None
 
         self.end = time.process_time()
@@ -59,6 +58,14 @@ class Solver(ABC):
         if self.dp_calls > DP_LIMIT:
             self.end = time.process_time()
             raise Exception("Unsolvable, limit of {} DP calls exceeded.".format(DP_LIMIT))
+
+        if self.dp_calls % 1000 == 0:
+            print("Time: {:.3f}, DP calls: {}, Split calls: {}, Solution attempts: {}".format(
+                time.process_time() - self.start,
+                self.dp_calls,
+                self.split_calls,
+                self.solution_attempts
+            ))
 
         while True:
             # Copy the clauses, because otherwise the loop will break if we remove items from the iteration.

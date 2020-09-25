@@ -14,12 +14,16 @@ def get_solver(split: str, input_filename: str):
         split = split + SEPARATOR
     split, direction = split.split(SEPARATOR)
 
-    return {
-        'fifo': FIFO,
-        'dlcs': DLCS,
-        'dlis': DLIS,
-        'mfld': MFLD,
-    }[split](problem=mxklabs.dimacs.read(input_filename))
+    try:
+        return {
+            'fifo': FIFO,
+            'dlcs': DLCS,
+            'dlis': DLIS,
+            'mfld': MFLD,
+        }[split](problem=mxklabs.dimacs.read(input_filename))
+    except Exception:
+        print("Could not read DIMACS file. Please make sure it is compliant with the DIMACS standard.")
+        raise
 
 
 def get_order(split: str) -> List[bool]:
