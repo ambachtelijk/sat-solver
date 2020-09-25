@@ -7,7 +7,7 @@ split_algorithm = sys.argv[1]
 input_filename = sys.argv[2]
 
 
-solver = get_solver(split_algorithm, input_filename, True, False)
+solver = get_solver(split_algorithm, input_filename)
 
 try:
     success, solution, clauses, conflict = solver.solve(order=get_order(split_algorithm))

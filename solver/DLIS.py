@@ -1,62 +1,60 @@
 import copy
 from typing import List, Dict, Set, Tuple, Optional
-
 from solver.Solver import Solver
 
 
-# Dynamic Largest Individual Sum split.
 class DLIS(Solver):
-    # noinspection DuplicatedCode
+    """Dynamic Largest Individual Sum split."""
+
+    # noinspection PyMethodOverriding, DuplicatedCode
     def _split(
             self,
             clauses: List[Set[int]],
             solution: Dict[int, bool],
-            order: List[bool],
-            backtrace: Set[int] = None,
-            stack: List[int] = None
+            order: List[bool]
     ) -> Tuple[bool, Dict[int, bool], List[Set[int]], Optional[int]]:
-        if backtrace is None:
-            backtrace = set()
-        if stack is None:
-            stack = []
-
         # Get all variables from the clauses.
-        unresolved: Dict[int, int] = {}
+        unresolved_variables = {
+            variable for variable, polarity in solution.items()
+            if polarity is None
+        }
+        frequencies: Dict[int, int] = {}
         for clause in clauses:
             for literal in clause:
                 variable = abs(literal)
 
-                if solution[variable] is not None or literal in backtrace or literal * -1 in backtrace:
+                if variable not in unresolved_variables:
                     continue
-                if literal not in unresolved:
-                    unresolved[literal] = 0
-                if literal * -1 not in unresolved:
+
+                if literal not in frequencies:
+                    frequencies[literal] = 0
+
+                if literal * -1 not in frequencies:
                     # This should never happen, because it indicates the existence of a pure literal.
-                    unresolved[literal * -1] = 0
-                unresolved[literal] += 1
+                    frequencies[literal * -1] = 0
+                frequencies[literal] += 1
 
-            # We will resolve the open variables in order of total frequency (both negative and positive literals
-            # combined).
-            sort: List[Tuple[int, int]] = [*sorted(unresolved.items(), key=lambda x: x[1], reverse=True)]
+        # We will resolve the open variables in order of total frequency (both negative and positive literals
+        # combined).
+        sort: List[Tuple[int, int]] = [*sorted(frequencies.items(), key=lambda x: x[1], reverse=True)]
 
-            for direction in order:
-                for literal, frq in sort:
-                    variable: int = abs(literal)
-                    polarity: bool = direction if unresolved[literal] > unresolved[literal * -1] else not direction
-                    # Append the current literal to the backtrace, so that it won't get scanned again.
-                    backtrace.add(literal)
-                    # Re-run the algorithm with a new literal value.
-                    success, _solution, _clauses, conflict = self._dp(
-                        # Do a deep copy, because otherwise it gets stuck with clause simplifications from previous
-                        # attempts.
-                        copy.deepcopy(clauses),
-                        {**solution, variable: polarity},
-                        {literal},
-                        backtrace={*backtrace},
-                        stack=[*stack, literal],
-                        order=order
-                    )
-                    if success:
-                        return success, _solution, _clauses, conflict
+        for direction in order:
+            for literal, frq in sort:
+                _literal = literal if frequencies[literal] > frequencies[literal * -1] and direction else literal * -1
 
-            return False, solution, clauses, None
+                # Make a deep copy, because otherwise it gets stuck with clause simplifications from previous
+                # attempts.
+                clauses_copy = copy.deepcopy(clauses)
+                solution_copy = {**solution}
+
+                # Add the literal to the solution.
+                if not self._resolve(_literal, clauses_copy, solution_copy):
+                    continue
+
+                # Re-run the DP algorithm with the new literal value added to the solution.
+                success, _solution, _clauses, conflict = self._dp(clauses_copy, solution_copy, order=order)
+
+                if success:
+                    return success, _solution, _clauses, None
+
+        return False, solution, clauses, None

@@ -11,6 +11,7 @@ splits = sys.argv[4].split(",") if len(sys.argv) >= 5 else [
     'fifo', 'fifo__reversed', 'fifo__negative_only', 'fifo__positive_only',
     'dlcs', 'dlcs__reversed', 'dlcs__negative_only', 'dlcs__positive_only',
     'dlis', 'dlis__reversed', 'dlis__negative_only', 'dlis__positive_only',
+    'most_frequent', 'most_frequent__reversed',
 ]
 
 end = offset + n
@@ -23,8 +24,6 @@ with open("output/stats-{}-{}.csv".format(offset, end), mode='w', newline='') as
         'split',
         'time',
         'dp_calls',
-        'literal_iterations',
-        'literal_searches',
         'number_known',
         'lowest_freq',
         'highest_freq'
@@ -40,12 +39,8 @@ with open("output/stats-{}-{}.csv".format(offset, end), mode='w', newline='') as
             print("Split:  {}".format(split))
             solver = get_solver(split, input_filename, True, False)
 
-            try:
-                success, solution, clauses, conflict = solver.solve(order=get_order(split))
-                print_solution(success, solution)
-            except Exception as e:
-                print(e)
-
+            success, solution, clauses, conflict = solver.solve(order=get_order(split))
+            print_solution(success, solution)
             print_stats(solver)
 
             stats.writerow([
@@ -53,15 +48,8 @@ with open("output/stats-{}-{}.csv".format(offset, end), mode='w', newline='') as
                 split,
                 solver.end - solver.start,
                 solver.dp_calls,
-                solver.literal_iterations,
-                solver.literal_searches,
                 len(solver.known),
                 solver.frequencies[-1][1],
-                solver.frequencies[1][1],
+                solver.frequencies[0][1],
             ])
             stats_file.flush()
-
-
-
-
-

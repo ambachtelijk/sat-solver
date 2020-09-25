@@ -4,11 +4,12 @@ from mxklabs.dimacs import Dimacs
 from solver.DLIS import DLIS
 from solver.DLCS import DLCS
 from solver.FIFO import FIFO
+from solver.MostFrequent import MostFrequent
 
 SEPARATOR = "__"
 
 
-def get_solver(split: str, input_filename: str, preprocess: bool = True, pure_literals: bool = False):
+def get_solver(split: str, input_filename: str):
     if SEPARATOR not in split:
         split = split + SEPARATOR
     split, direction = split.split(SEPARATOR)
@@ -17,11 +18,8 @@ def get_solver(split: str, input_filename: str, preprocess: bool = True, pure_li
         'fifo': FIFO,
         'dlcs': DLCS,
         'dlis': DLIS,
-    }[split](
-        problem=mxklabs.dimacs.read(input_filename),
-        preprocess=preprocess,
-        pure_literals=pure_literals
-    )
+        'most_frequent': MostFrequent,
+    }[split](problem=mxklabs.dimacs.read(input_filename))
 
 
 def get_order(split: str) -> List[bool]:
