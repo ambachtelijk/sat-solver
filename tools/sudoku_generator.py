@@ -1,5 +1,15 @@
 from random import sample
 
+distributions = [
+    [0, 0, 0, 0, 0, 1, 1, 1, 9],
+    [0, 0, 0, 0, 0, 1, 1, 2, 8],
+    [0, 0, 0, 0, 1, 1, 1, 2, 7],
+    [0, 0, 0, 0, 1, 1, 2, 2, 6],
+    [0, 0, 0, 1, 1, 1, 2, 2, 5],
+    [0, 0, 1, 1, 1, 1, 2, 2, 4],
+    [0, 1, 1, 1, 1, 2, 2, 2, 3]
+]
+
 base = 3
 side = 9
 
@@ -13,19 +23,26 @@ def shuffle(s):
     return sample(s, len(s))
 
 
-rBase = range(base)
-rows = [g * base + r for g in shuffle(rBase) for r in shuffle(rBase)]
-cols = [g * base + c for g in shuffle(rBase) for c in shuffle(rBase)]
-nums = shuffle(range(1, 10))
+def generate_sudoku():
+    r_base = range(base)
+    rows = [g * base + r for g in shuffle(r_base) for r in shuffle(r_base)]
+    cols = [g * base + c for g in shuffle(r_base) for c in shuffle(r_base)]
+    nums = shuffle(range(1, 10))
 
-# produce board using randomized baseline pattern
-sudo = [[nums[pattern(r, c)] for c in cols] for r in rows]
+    # produce board using randomized baseline pattern
+    return [nums[pattern(r, c)] for c in cols for r in rows]
 
-squares = side * side
-empties = squares * 64 // 81
-for p in sample(range(squares), empties):
-    sudo[p // side][p % side] = 0
 
-numSize = len(str(side))
+for distribution in distributions:
+    for k in range(0, 100):
+        sudoku = generate_sudoku()
+        for i, freq in enumerate(distribution):
+            positions = sample(range(1, 10), freq)
+            current_pos = 0
+            for j, value in enumerate(sudoku):
+                if value == i + 1:
+                    current_pos += 1
+                    if current_pos not in positions:
+                        sudoku[j] = 0
 
-for line in sudo: print("".join(f"{n or '.':{numSize}}" for n in line))
+        print("".join(f"{n or '.':{1}}" for n in sudoku))

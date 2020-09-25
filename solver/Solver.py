@@ -6,9 +6,7 @@ from mxklabs.dimacs import Dimacs
 from abc import ABC, abstractmethod
 from typing import Set, Dict, List, Tuple, Optional
 
-from tools.printer import print_sudoku
-
-DP_LIMIT = 100000
+DP_LIMIT = 2500
 PURE_LITERALS = False
 
 
@@ -45,7 +43,7 @@ class Solver(ABC):
         except Exception as e:
             self.end = time.process_time()
             print(e)
-            print(traceback.format_exc())
+            # print(traceback.format_exc())
             return False, None, None, None
 
         self.end = time.process_time()
@@ -61,9 +59,6 @@ class Solver(ABC):
         if self.dp_calls > DP_LIMIT:
             self.end = time.process_time()
             raise Exception("Unsolvable, limit of {} DP calls exceeded.".format(DP_LIMIT))
-        if self.dp_calls % 1000 == 0:
-            print("{} {} {}".format(self.dp_calls, self.solution_attempts, time.process_time() - self.start))
-            print_sudoku(solution)
 
         while True:
             # Copy the clauses, because otherwise the loop will break if we remove items from the iteration.
@@ -146,8 +141,10 @@ class Solver(ABC):
         elif solution[variable] != polarity:
             return False
 
+        if polarity:
+            self.solution_attempts += 1
+
         # The current solution is still solvable.
-        self.solution_attempts += 1
         return True
 
     @staticmethod

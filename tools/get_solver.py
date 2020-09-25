@@ -4,7 +4,7 @@ from mxklabs.dimacs import Dimacs
 from solver.DLIS import DLIS
 from solver.DLCS import DLCS
 from solver.FIFO import FIFO
-from solver.MostFrequent import MostFrequent
+from solver.MFLD import MFLD
 
 SEPARATOR = "__"
 
@@ -18,7 +18,7 @@ def get_solver(split: str, input_filename: str):
         'fifo': FIFO,
         'dlcs': DLCS,
         'dlis': DLIS,
-        'most_frequent': MostFrequent,
+        'mfld': MFLD,
     }[split](problem=mxklabs.dimacs.read(input_filename))
 
 

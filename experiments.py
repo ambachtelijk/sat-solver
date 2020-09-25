@@ -1,22 +1,19 @@
 import csv
 import sys
+from typing import List
 
 from tools.get_solver import get_solver, get_order
 from tools.printer import print_solution, print_stats
 
-prefix_filename: str = sys.argv[1]
-n: int = int(sys.argv[2])
-offset: int = int(sys.argv[3]) if len(sys.argv) >= 4 else 0
-splits = sys.argv[4].split(",") if len(sys.argv) >= 5 else [
-    'fifo', 'fifo__reversed', 'fifo__negative_only', 'fifo__positive_only',
-    'dlcs', 'dlcs__reversed', 'dlcs__negative_only', 'dlcs__positive_only',
-    'dlis', 'dlis__reversed', 'dlis__negative_only', 'dlis__positive_only',
-    'most_frequent', 'most_frequent__reversed',
-]
 
+prefix_input: str = sys.argv[1]
+prefix_output: str = sys.argv[2]
+splits: List[str] = sys.argv[3].split(",")
+n: int = int(sys.argv[4])
+offset: int = int(sys.argv[5])
 end = offset + n
 
-with open("output/stats-{}-{}.csv".format(offset, end), mode='w', newline='') as stats_file:
+with open("{}-{}-{}.csv".format(prefix_output, offset, end), mode='w', newline='') as stats_file:
     stats = csv.writer(stats_file)
 
     stats.writerow([
@@ -24,6 +21,8 @@ with open("output/stats-{}-{}.csv".format(offset, end), mode='w', newline='') as
         'split',
         'time',
         'dp_calls',
+        'split_calls',
+        'solution_attempts',
         'number_known',
         'lowest_freq',
         'highest_freq'
@@ -33,7 +32,7 @@ with open("output/stats-{}-{}.csv".format(offset, end), mode='w', newline='') as
     print("Processing Sudoku {} to {}".format(str(offset), str(end)))
     for i in range(offset, end):
         print("Sudoku: {}".format(str(i)))
-        input_filename = "{}-{}.cnf".format(prefix_filename, str(i).zfill(4))
+        input_filename = "{}-{}.cnf".format(prefix_input, str(i).zfill(4))
 
         for split in splits:
             print("Split:  {}".format(split))
@@ -48,6 +47,8 @@ with open("output/stats-{}-{}.csv".format(offset, end), mode='w', newline='') as
                 split,
                 solver.end - solver.start,
                 solver.dp_calls,
+                solver.split_calls,
+                solver.solution_attempts,
                 len(solver.known),
                 solver.frequencies[-1][1],
                 solver.frequencies[0][1],

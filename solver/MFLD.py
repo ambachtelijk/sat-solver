@@ -5,7 +5,7 @@ from typing import List, Dict, Set, Tuple, Optional
 from solver.Solver import Solver
 
 
-class MostFrequent(Solver):
+class MFLD(Solver):
     """Most Frequent Last Digit split"""
 
     # noinspection PyMethodOverriding,DuplicatedCode

@@ -7,7 +7,7 @@ from mxklabs.dimacs import Dimacs
 from typing import List, IO
 
 
-def main(sudoku_filename: str, rules_filename: str, output_directory: str, output_prefix: str) -> None:
+def main(sudoku_filename: str, rules_filename: str, output_prefix: str) -> None:
     # Opens the file.
     sudoku_file: IO = open(sudoku_filename, "r")
 
@@ -52,7 +52,7 @@ def main(sudoku_filename: str, rules_filename: str, output_directory: str, outpu
         clauses = clauses + rules.clauses
 
         # Write the clauses to a cnf file.
-        output_filename: str = os.path.join(output_directory, output_prefix + '-' + str(i).rjust(4, '0') + '.cnf')
+        output_filename: str = os.path.join(output_prefix + '-' + str(i).rjust(4, '0') + '.cnf')
         output_file: IO = open(output_filename, 'w')
         output_file.write("p cnf {} {}\n".format(str(int(size)) * 3, len(clauses)))
         for clause in clauses:
@@ -60,4 +60,4 @@ def main(sudoku_filename: str, rules_filename: str, output_directory: str, outpu
         output_file.close()
 
 
-main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+main(sys.argv[1], sys.argv[2], sys.argv[3])

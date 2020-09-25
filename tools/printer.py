@@ -9,9 +9,7 @@ def print_solution(success: bool, solution: Dict[int, Optional[bool]]):
 
         sqrt: float = math.sqrt(len(positive_vars))
         if sqrt.is_integer():
-            for row in range(int(sqrt)):
-                print(positive_vars[:int(sqrt)])
-                positive_vars = positive_vars[int(sqrt):]
+            print_sudoku(solution)
         else:
             print(positive_vars)
     else:
